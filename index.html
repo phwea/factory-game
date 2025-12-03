@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factory Simulator Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <div class="nav-brand">🏭 Factory Simulator</div>
+            <div class="nav-links">
+                <button class="nav-btn active" data-page="home">Home</button>
+                <button class="nav-btn" data-page="warehouse">Warehouse</button>
+                <button class="nav-btn" data-page="market">Market</button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- Home Page -->
+            <section id="home-page" class="page active">
+                <h1>Factory Dashboard</h1>
+                <div class="dashboard-grid">
+                    <!-- Factory Stats Card -->
+                    <div class="card factory-card">
+                        <h2>🔧 Factory</h2>
+                        <div class="stats">
+                            <div class="stat">
+                                <span class="stat-label">Processors</span>
+                                <span class="stat-value" id="home-processor-count">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Manufacturers</span>
+                                <span class="stat-value" id="home-manufacturer-count">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Production Rate</span>
+                                <span class="stat-value" id="home-production-rate">0/s</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warehouse Stats Card -->
+                    <div class="card warehouse-card">
+                        <h2>📦 Warehouse</h2>
+                        <div class="stats">
+                            <div class="stat">
+                                <span class="stat-label">Raw Materials</span>
+                                <span class="stat-value" id="home-raw-materials">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Processed Items</span>
+                                <span class="stat-value" id="home-processed-items">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Storage Used</span>
+                                <span class="stat-value" id="home-storage-used">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Market Stats Card -->
+                    <div class="card market-card">
+                        <h2>💰 Market</h2>
+                        <div class="stats">
+                            <div class="stat">
+                                <span class="stat-label">Balance</span>
+                                <span class="stat-value" id="home-balance">$1000</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Steel Price</span>
+                                <span class="stat-value" id="home-steel-price">$0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Item Price</span>
+                                <span class="stat-value" id="home-item-price">$0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions Card -->
+                    <div class="card actions-card">
+                        <h2>⚡ Quick Actions</h2>
+                        <div class="quick-actions">
+                            <button class="action-btn" id="quick-buy-processor">Buy Processor ($100)</button>
+                            <button class="action-btn" id="quick-sell-items">Sell All Items</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Warehouse Page -->
+            <section id="warehouse-page" class="page">
+                <h1>Warehouse Management</h1>
+                <div class="warehouse-layout">
+                    <!-- Inventory Panel -->
+                    <div class="panel inventory-panel">
+                        <h2>📦 Inventory</h2>
+                        <div class="inventory-grid">
+                            <div class="inventory-item">
+                                <div class="item-icon">⚙️</div>
+                                <div class="item-name">Raw Steel</div>
+                                <div class="item-count" id="inv-raw-steel">0</div>
+                            </div>
+                            <div class="inventory-item">
+                                <div class="item-icon">🔩</div>
+                                <div class="item-name">Steel Plates</div>
+                                <div class="item-count" id="inv-steel-plates">0</div>
+                            </div>
+                            <div class="inventory-item">
+                                <div class="item-icon">🔧</div>
+                                <div class="item-name">Steel Gears</div>
+                                <div class="item-count" id="inv-steel-gears">0</div>
+                            </div>
+                            <div class="inventory-item">
+                                <div class="item-icon">🛠️</div>
+                                <div class="item-name">Steel Tools</div>
+                                <div class="item-count" id="inv-steel-tools">0</div>
+                            </div>
+                        </div>
+                        <div class="storage-bar">
+                            <div class="storage-label">Storage: <span id="storage-current">0</span>/<span id="storage-max">100</span></div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="storage-progress"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Processors Panel -->
+                    <div class="panel processors-panel">
+                        <h2>⚡ Processors</h2>
+                        <p class="panel-desc">Processors generate raw materials automatically.</p>
+                        <div class="machine-list" id="processor-list">
+                            <!-- Processor items will be dynamically added -->
+                        </div>
+                        <button class="buy-btn" id="buy-steel-generator">
+                            Buy Steel Generator
+                            <span class="price" id="steel-generator-price">$100</span>
+                        </button>
+                    </div>
+
+                    <!-- Manufacturers Panel -->
+                    <div class="panel manufacturers-panel">
+                        <h2>🏭 Manufacturers</h2>
+                        <p class="panel-desc">Manufacturers convert raw materials into sellable items.</p>
+                        <div class="machine-list" id="manufacturer-list">
+                            <!-- Manufacturer items will be dynamically added -->
+                        </div>
+                        <div class="manufacturer-buttons">
+                            <button class="buy-btn" id="buy-plate-press">
+                                Buy Plate Press
+                                <span class="price" id="plate-press-price">$150</span>
+                            </button>
+                            <button class="buy-btn" id="buy-gear-maker">
+                                Buy Gear Maker
+                                <span class="price" id="gear-maker-price">$200</span>
+                            </button>
+                            <button class="buy-btn" id="buy-tool-assembler">
+                                Buy Tool Assembler
+                                <span class="price" id="tool-assembler-price">$300</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Market Page -->
+            <section id="market-page" class="page">
+                <h1>Market Trading</h1>
+                <div class="market-layout">
+                    <!-- Balance Panel -->
+                    <div class="panel balance-panel">
+                        <h2>💵 Your Balance</h2>
+                        <div class="balance-display">
+                            <span class="currency">$</span>
+                            <span class="balance-amount" id="market-balance">1000</span>
+                        </div>
+                    </div>
+
+                    <!-- Price Trends Panel -->
+                    <div class="panel trends-panel">
+                        <h2>📈 Price Trends</h2>
+                        <p class="panel-desc">Prices update dynamically based on supply and demand.</p>
+                        <div class="price-list">
+                            <div class="price-item">
+                                <span class="item-name">🔩 Steel Plates</span>
+                                <span class="item-price" id="market-plate-price">$15</span>
+                                <span class="price-trend" id="plate-trend">→</span>
+                            </div>
+                            <div class="price-item">
+                                <span class="item-name">🔧 Steel Gears</span>
+                                <span class="item-price" id="market-gear-price">$25</span>
+                                <span class="price-trend" id="gear-trend">→</span>
+                            </div>
+                            <div class="price-item">
+                                <span class="item-name">🛠️ Steel Tools</span>
+                                <span class="item-price" id="market-tool-price">$50</span>
+                                <span class="price-trend" id="tool-trend">→</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sell Panel -->
+                    <div class="panel sell-panel">
+                        <h2>💰 Sell Items</h2>
+                        <div class="sell-list">
+                            <div class="sell-item">
+                                <div class="sell-info">
+                                    <span class="item-icon">🔩</span>
+                                    <span class="item-name">Steel Plates</span>
+                                    <span class="item-owned" id="sell-plates-owned">0 owned</span>
+                                </div>
+                                <div class="sell-controls">
+                                    <input type="number" min="0" value="1" class="sell-amount" id="sell-plates-amount">
+                                    <button class="sell-btn" id="sell-plates-btn">Sell</button>
+                                </div>
+                            </div>
+                            <div class="sell-item">
+                                <div class="sell-info">
+                                    <span class="item-icon">🔧</span>
+                                    <span class="item-name">Steel Gears</span>
+                                    <span class="item-owned" id="sell-gears-owned">0 owned</span>
+                                </div>
+                                <div class="sell-controls">
+                                    <input type="number" min="0" value="1" class="sell-amount" id="sell-gears-amount">
+                                    <button class="sell-btn" id="sell-gears-btn">Sell</button>
+                                </div>
+                            </div>
+                            <div class="sell-item">
+                                <div class="sell-info">
+                                    <span class="item-icon">🛠️</span>
+                                    <span class="item-name">Steel Tools</span>
+                                    <span class="item-owned" id="sell-tools-owned">0 owned</span>
+                                </div>
+                                <div class="sell-controls">
+                                    <input type="number" min="0" value="1" class="sell-amount" id="sell-tools-amount">
+                                    <button class="sell-btn" id="sell-tools-btn">Sell</button>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="action-btn sell-all-btn" id="sell-all-btn">Sell All Items</button>
+                    </div>
+
+                    <!-- Market History Panel -->
+                    <div class="panel history-panel">
+                        <h2>📜 Transaction History</h2>
+                        <div class="history-list" id="transaction-history">
+                            <div class="history-item placeholder">No transactions yet</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <span class="status-item">Balance: $<span id="status-balance">1000</span></span>
+            <span class="status-item">Storage: <span id="status-storage">0/100</span></span>
+            <span class="status-item">Production: <span id="status-production">0/s</span></span>
+        </footer>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
