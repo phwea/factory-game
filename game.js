@@ -30,7 +30,7 @@ const gameState = {
     // Warehouse slots system
     warehouseSlots: {
         purchased: 1,      // Start with 1 free slot
-        maxPerSlot: 20,    // Each slot holds up to 20 unique machines
+        maxPerSlot: 20,    // Each slot holds up to 20 machines
         baseCost: 500,     // Base cost for additional slots
         costMultiplier: 1.5 // Cost increases by 50% for each slot
     },
@@ -454,11 +454,12 @@ function updateMachineList(listId, machines) {
         const statusClass = machine.enabled ? 'enabled' : 'disabled';
         const toggleText = machine.enabled ? 'ON' : 'OFF';
         const toggleClass = machine.enabled ? 'toggle-on' : 'toggle-off';
+        const rateLabel = definition.type === 'manufacturer' ? 'Max rate' : 'Output';
         return `
             <div class="machine-item ${statusClass}">
                 <div class="machine-info">
                     <span class="machine-name">${definition.icon} ${definition.name}</span>
-                    <span class="machine-output">Output: ${definition.rate}/s</span>
+                    <span class="machine-output">${rateLabel}: ${definition.rate}/s</span>
                 </div>
                 <button class="toggle-btn ${toggleClass}" onclick="toggleMachine(${machine.id}, '${machineType}')">
                     ${toggleText}
