@@ -29,11 +29,11 @@
                         <h2>🔧 Factory</h2>
                         <div class="stats">
                             <div class="stat">
-                                <span class="stat-label">Processors</span>
+                                <span class="stat-label">Steel Generators</span>
                                 <span class="stat-value" id="home-processor-count">0</span>
                             </div>
                             <div class="stat">
-                                <span class="stat-label">Manufacturers</span>
+                                <span class="stat-label">Processors</span>
                                 <span class="stat-value" id="home-manufacturer-count">0</span>
                             </div>
                             <div class="stat">
@@ -85,7 +85,7 @@
                     <div class="card actions-card">
                         <h2>⚡ Quick Actions</h2>
                         <div class="quick-actions">
-                            <button class="action-btn" id="quick-buy-processor">Buy Processor ($100)</button>
+                            <button class="action-btn" id="quick-buy-processor">Buy Steel Generator ($100)</button>
                             <button class="action-btn" id="quick-sell-items">Sell All Items</button>
                         </div>
                     </div>
@@ -127,12 +127,27 @@
                                 <div class="progress-fill" id="storage-progress"></div>
                             </div>
                         </div>
+                        <!-- Warehouse Slots Section -->
+                        <div class="warehouse-slots-section">
+                            <h3>🏪 Warehouse Slots</h3>
+                            <p class="panel-desc">Each slot holds up to 20 machines.</p>
+                            <div class="storage-bar">
+                                <div class="storage-label">Machines: <span id="warehouse-slots-used">0</span>/<span id="warehouse-slots-max">20</span></div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill slots-fill" id="warehouse-slots-progress"></div>
+                                </div>
+                            </div>
+                            <button class="buy-btn" id="buy-warehouse-slot">
+                                Buy Warehouse Slot
+                                <span class="price" id="warehouse-slot-price">$500</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Processors Panel -->
                     <div class="panel processors-panel">
-                        <h2>⚡ Processors</h2>
-                        <p class="panel-desc">Processors generate raw materials automatically.</p>
+                        <h2>⚡ Steel Generators</h2>
+                        <p class="panel-desc">Steel generators produce raw steel automatically.</p>
                         <div class="machine-list" id="processor-list">
                             <!-- Processor items will be dynamically added -->
                         </div>
@@ -142,12 +157,12 @@
                         </button>
                     </div>
 
-                    <!-- Manufacturers Panel -->
+                    <!-- Processors Panel (convert raw materials) -->
                     <div class="panel manufacturers-panel">
-                        <h2>🏭 Manufacturers</h2>
-                        <p class="panel-desc">Manufacturers convert raw materials into sellable items.</p>
+                        <h2>🏭 Processors</h2>
+                        <p class="panel-desc">Processors use raw steel from storage to create processed materials.</p>
                         <div class="machine-list" id="manufacturer-list">
-                            <!-- Manufacturer items will be dynamically added -->
+                            <!-- Processor items will be dynamically added -->
                         </div>
                         <div class="manufacturer-buttons">
                             <button class="buy-btn" id="buy-plate-press">

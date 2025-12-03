@@ -24,8 +24,16 @@ const gameState = {
     },
     
     // Machines
-    processors: [],
-    manufacturers: [],
+    processors: [],      // Steel generators (produce raw steel)
+    manufacturers: [],   // Processors that use raw steel to create processed materials
+    
+    // Warehouse slots system
+    warehouseSlots: {
+        purchased: 1,      // Start with 1 free slot
+        maxPerSlot: 20,    // Each slot holds up to 20 unique machines
+        baseCost: 500,     // Base cost for additional slots
+        costMultiplier: 1.5 // Cost increases by 50% for each slot
+    },
     
     // Market prices (dynamic)
     prices: {
@@ -34,12 +42,12 @@ const gameState = {
         steelTools: { base: 50, current: 50, trend: 0 }
     },
     
-    // Machine costs (increase with each purchase)
+    // Machine costs (fixed per machine, no stacking bonus)
     machineCosts: {
-        steelGenerator: { base: 100, count: 0 },
-        platePress: { base: 150, count: 0 },
-        gearMaker: { base: 200, count: 0 },
-        toolAssembler: { base: 300, count: 0 }
+        steelGenerator: { base: 100 },
+        platePress: { base: 150 },
+        gearMaker: { base: 200 },
+        toolAssembler: { base: 300 }
     },
     
     // Transaction history
@@ -102,13 +110,60 @@ function getStoragePercentage() {
 
 function getMachineCost(machineType) {
     const machine = gameState.machineCosts[machineType];
-    return Math.floor(machine.base * Math.pow(1.15, machine.count));
+    return machine.base; // Fixed cost, no stacking multiplier
+}
+
+function getTotalMachineCount() {
+    return gameState.processors.length + gameState.manufacturers.length;
+}
+
+function getMaxMachineCapacity() {
+    return gameState.warehouseSlots.purchased * gameState.warehouseSlots.maxPerSlot;
+}
+
+function getWarehouseSlotCost() {
+    const slots = gameState.warehouseSlots;
+    return Math.floor(slots.baseCost * Math.pow(slots.costMultiplier, slots.purchased - 1));
+}
+
+function buyWarehouseSlot() {
+    const cost = getWarehouseSlotCost();
+    
+    if (gameState.balance < cost) {
+        showNotification('Not enough money for warehouse slot!', 'error');
+        return false;
+    }
+    
+    gameState.balance -= cost;
+    gameState.warehouseSlots.purchased++;
+    
+    addTransaction(`Bought Warehouse Slot #${gameState.warehouseSlots.purchased}`, -cost);
+    showNotification(`Purchased Warehouse Slot #${gameState.warehouseSlots.purchased}!`, 'success');
+    updateUI();
+    return true;
+}
+
+function toggleMachine(machineId, machineType) {
+    let machines;
+    if (machineType === 'processor') {
+        machines = gameState.processors;
+    } else {
+        machines = gameState.manufacturers;
+    }
+    
+    const machine = machines.find(m => m.id === machineId);
+    if (machine) {
+        machine.enabled = !machine.enabled;
+        updateUI();
+    }
 }
 
 function getProductionRate() {
     let rate = 0;
     gameState.processors.forEach(p => {
-        rate += machineDefinitions[p.type].rate;
+        if (p.enabled) {
+            rate += machineDefinitions[p.type].rate;
+        }
     });
     return rate.toFixed(1);
 }
@@ -122,14 +177,20 @@ function buyMachine(machineType) {
         return false;
     }
     
+    // Check if we have room in warehouse slots
+    if (getTotalMachineCount() >= getMaxMachineCapacity()) {
+        showNotification('No warehouse slots available! Buy more slots.', 'error');
+        return false;
+    }
+    
     gameState.balance -= cost;
-    gameState.machineCosts[machineType].count++;
     
     const definition = machineDefinitions[machineType];
     const machine = {
         id: ++machineIdCounter,
         type: machineType,
-        lastProcess: Date.now()
+        lastProcess: Date.now(),
+        enabled: true // Machines start enabled by default
     };
     
     if (definition.type === 'processor') {
@@ -148,8 +209,13 @@ function buyMachine(machineType) {
 function processProduction() {
     const now = Date.now();
     
-    // Process all processors
+    // Process all processors (only if enabled)
     gameState.processors.forEach(processor => {
+        if (!processor.enabled) {
+            processor.lastProcess = now; // Keep time updated even when disabled
+            return;
+        }
+        
         const definition = machineDefinitions[processor.type];
         const timePassed = (now - processor.lastProcess) / 1000;
         const itemsToAdd = Math.floor(timePassed * definition.rate);
@@ -163,8 +229,13 @@ function processProduction() {
         }
     });
     
-    // Process all manufacturers
+    // Process all manufacturers (only if enabled)
     gameState.manufacturers.forEach(manufacturer => {
+        if (!manufacturer.enabled) {
+            manufacturer.lastProcess = now; // Keep time updated even when disabled
+            return;
+        }
+        
         const definition = machineDefinitions[manufacturer.type];
         const timePassed = (now - manufacturer.lastProcess) / 1000;
         const cyclesAvailable = Math.floor(timePassed * definition.rate);
@@ -331,6 +402,13 @@ function updateUI() {
     document.getElementById('storage-max').textContent = gameState.maxStorage;
     document.getElementById('storage-progress').style.width = `${getStoragePercentage()}%`;
     
+    // Update warehouse slots info
+    document.getElementById('warehouse-slots-used').textContent = getTotalMachineCount();
+    document.getElementById('warehouse-slots-max').textContent = getMaxMachineCapacity();
+    document.getElementById('warehouse-slot-price').textContent = formatMoney(getWarehouseSlotCost());
+    document.getElementById('warehouse-slots-progress').style.width = 
+        `${Math.round((getTotalMachineCount() / getMaxMachineCapacity()) * 100)}%`;
+    
     // Update machine costs
     document.getElementById('steel-generator-price').textContent = formatMoney(getMachineCost('steelGenerator'));
     document.getElementById('plate-press-price').textContent = formatMoney(getMachineCost('platePress'));
@@ -363,30 +441,28 @@ function updateUI() {
 
 function updateMachineList(listId, machines) {
     const list = document.getElementById(listId);
+    const machineType = listId === 'processor-list' ? 'processor' : 'manufacturer';
     
     if (machines.length === 0) {
         list.innerHTML = '<div class="machine-item"><span style="color: var(--text-secondary);">No machines yet</span></div>';
         return;
     }
     
-    // Group machines by type
-    const grouped = {};
-    machines.forEach(machine => {
-        if (!grouped[machine.type]) {
-            grouped[machine.type] = 0;
-        }
-        grouped[machine.type]++;
-    });
-    
-    list.innerHTML = Object.entries(grouped).map(([type, count]) => {
-        const definition = machineDefinitions[type];
+    // Show each machine individually with toggle button
+    list.innerHTML = machines.map(machine => {
+        const definition = machineDefinitions[machine.type];
+        const statusClass = machine.enabled ? 'enabled' : 'disabled';
+        const toggleText = machine.enabled ? 'ON' : 'OFF';
+        const toggleClass = machine.enabled ? 'toggle-on' : 'toggle-off';
         return `
-            <div class="machine-item">
+            <div class="machine-item ${statusClass}">
                 <div class="machine-info">
                     <span class="machine-name">${definition.icon} ${definition.name}</span>
                     <span class="machine-output">Output: ${definition.rate}/s</span>
                 </div>
-                <span class="machine-status">x${count}</span>
+                <button class="toggle-btn ${toggleClass}" onclick="toggleMachine(${machine.id}, '${machineType}')">
+                    ${toggleText}
+                </button>
             </div>
         `;
     }).join('');
@@ -492,6 +568,11 @@ function setupEventHandlers() {
     
     document.getElementById('sell-all-btn').addEventListener('click', () => {
         sellAllItems();
+    });
+    
+    // Warehouse slot button
+    document.getElementById('buy-warehouse-slot').addEventListener('click', () => {
+        buyWarehouseSlot();
     });
 }
 
