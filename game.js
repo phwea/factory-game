@@ -7,6 +7,10 @@
  */
 
 // ==================== GAME STATE ====================
+let machineIdCounter = 0;
+let gameLoopInterval = null;
+let priceLoopInterval = null;
+
 const gameState = {
     balance: 1000,
     maxStorage: 100,
@@ -123,7 +127,7 @@ function buyMachine(machineType) {
     
     const definition = machineDefinitions[machineType];
     const machine = {
-        id: Date.now() + Math.random(),
+        id: ++machineIdCounter,
         type: machineType,
         lastProcess: Date.now()
     };
@@ -135,6 +139,7 @@ function buyMachine(machineType) {
     }
     
     addTransaction(`Bought ${definition.name}`, -cost);
+    showNotification(`Purchased ${definition.name}!`, 'success');
     updateUI();
     return true;
 }
@@ -222,6 +227,7 @@ function sellItem(itemKey, amount) {
     gameState.balance += revenue;
     
     addTransaction(`Sold ${amount} ${itemKey.replace(/([A-Z])/g, ' $1').trim()}`, revenue);
+    showNotification(`Sold for $${revenue}!`, 'success');
     updateUI();
     return true;
 }
@@ -246,6 +252,9 @@ function sellAllItems() {
     if (itemsSold > 0) {
         gameState.balance += totalRevenue;
         addTransaction(`Sold ${itemsSold} items`, totalRevenue);
+        showNotification(`Sold ${itemsSold} items for $${totalRevenue}!`, 'success');
+    } else {
+        showNotification('No items to sell!', 'error');
     }
     
     updateUI();
@@ -266,8 +275,32 @@ function addTransaction(description, amount) {
 
 // ==================== NOTIFICATION SYSTEM ====================
 function showNotification(message, type = 'info') {
-    // Simple console notification for now
-    console.log(`[${type.toUpperCase()}] ${message}`);
+    // Create toast notification element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 12px 24px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        z-index: 1000;
+        animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+        background: ${type === 'error' ? '#e74c3c' : type === 'success' ? '#27ae60' : '#3498db'};
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 3000);
 }
 
 // ==================== UI UPDATE FUNCTIONS ====================
@@ -479,9 +512,13 @@ function init() {
     setupEventHandlers();
     updateUI();
     
+    // Clear any existing intervals (in case of re-initialization)
+    if (gameLoopInterval) clearInterval(gameLoopInterval);
+    if (priceLoopInterval) clearInterval(priceLoopInterval);
+    
     // Start game loops
-    setInterval(gameLoop, 100); // 10 times per second for smooth production
-    setInterval(priceLoop, 5000); // Update prices every 5 seconds
+    gameLoopInterval = setInterval(gameLoop, 100); // 10 times per second for smooth production
+    priceLoopInterval = setInterval(priceLoop, 5000); // Update prices every 5 seconds
     
     console.log('🏭 Factory Simulator initialized!');
 }
