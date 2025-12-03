@@ -596,3 +596,57 @@ h1 {
         opacity: 0;
     }
 }
+
+/* === Toggle Buttons for Machines === */
+.toggle-btn {
+    padding: 0.4rem 0.8rem;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    min-width: 50px;
+}
+
+.toggle-btn.toggle-on {
+    background: linear-gradient(135deg, var(--secondary-color), #27ae60);
+    color: white;
+    box-shadow: 0 2px 8px rgba(46, 204, 113, 0.4);
+}
+
+.toggle-btn.toggle-off {
+    background: linear-gradient(135deg, var(--danger-color), #c0392b);
+    color: white;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+}
+
+.toggle-btn:hover {
+    transform: scale(1.05);
+}
+
+.machine-item.disabled {
+    opacity: 0.6;
+    border-left-color: var(--danger-color);
+}
+
+.machine-item.enabled {
+    border-left-color: var(--secondary-color);
+}
+
+/* === Warehouse Slots Section === */
+.warehouse-slots-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.warehouse-slots-section h3 {
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.slots-fill {
+    background: linear-gradient(90deg, var(--accent-color), var(--primary-color));
+}
