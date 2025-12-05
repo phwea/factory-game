@@ -1,527 +1,1000 @@
 /**
- * Factory Simulator Game Logic
- * Features:
- * - Processors: Generate raw materials (steel)
- * - Manufacturers: Convert raw materials into sellable items
- * - Market: Dynamic pricing based on supply/demand
+ * Factory Simulator - Modular Game Engine
+ * =========================================
+ * All game content defined in CONFIG - easy to expand!
  */
 
-// ==================== GAME STATE ====================
+// ============================================================
+// CONFIGURATION - Edit to customize the game
+// ============================================================
+
+const CONFIG = {
+    settings: {
+        startingBalance: 1000,
+        startingStorage: 100,
+        autoSaveInterval: 30000,
+        productionTickRate: 1000,
+        priceUpdateInterval: 5000
+    },
+
+    itemCategories: {
+        raw: { name: 'Raw Materials', icon: '🪨', color: '#a3a3a3' },
+        processed: { name: 'Processed', icon: '🔩', color: '#60a5fa' },
+        advanced: { name: 'Advanced', icon: '⚙️', color: '#a78bfa' },
+        finished: { name: 'Finished Goods', icon: '📦', color: '#4ade80' }
+    },
+
+    items: {
+        rawSteel: {
+            name: 'Raw Steel', icon: '🔘', category: 'raw',
+            description: 'Unprocessed steel ingots', stackSize: 100
+        },
+        rawCopper: {
+            name: 'Raw Copper', icon: '🟠', category: 'raw',
+            description: 'Unprocessed copper ore', stackSize: 100
+        },
+        steelPlates: {
+            name: 'Steel Plates', icon: '🔩', category: 'processed',
+            description: 'Pressed steel plates', stackSize: 50,
+            sellable: true, basePrice: 15, priceVolatility: 0.1
+        },
+        copperWire: {
+            name: 'Copper Wire', icon: '〰️', category: 'processed',
+            description: 'Thin copper wiring', stackSize: 100,
+            sellable: true, basePrice: 12, priceVolatility: 0.08
+        },
+        steelGears: {
+            name: 'Steel Gears', icon: '⚙️', category: 'processed',
+            description: 'Precision machined gears', stackSize: 50,
+            sellable: true, basePrice: 25, priceVolatility: 0.12
+        },
+        circuits: {
+            name: 'Circuits', icon: '🔌', category: 'advanced',
+            description: 'Basic electronic circuits', stackSize: 25,
+            sellable: true, basePrice: 45, priceVolatility: 0.15
+        },
+        motors: {
+            name: 'Motors', icon: '🔄', category: 'advanced',
+            description: 'Electric motors', stackSize: 25,
+            sellable: true, basePrice: 60, priceVolatility: 0.12
+        },
+        steelTools: {
+            name: 'Steel Tools', icon: '🔧', category: 'finished',
+            description: 'High-quality steel tools', stackSize: 20,
+            sellable: true, basePrice: 80, priceVolatility: 0.1
+        },
+        machines: {
+            name: 'Machines', icon: '🏭', category: 'finished',
+            description: 'Industrial machinery', stackSize: 10,
+            sellable: true, basePrice: 150, priceVolatility: 0.2
+        }
+    },
+
+    machineCategories: {
+        generator: { name: 'Generators', icon: '⚡', description: 'Produce raw materials' },
+        processor: { name: 'Processors', icon: '🔧', description: 'Convert raw materials' },
+        assembler: { name: 'Assemblers', icon: '🏭', description: 'Combine components' }
+    },
+
+    machines: {
+        steelGenerator: {
+            name: 'Steel Generator', icon: '⛏️', category: 'generator',
+            description: 'Extracts raw steel', tier: 1,
+            inputs: [], outputs: [{ item: 'rawSteel', amount: 1 }],
+            craftTime: 1.0, baseCost: 100, costScaling: 1.15, unlocked: true
+        },
+        copperGenerator: {
+            name: 'Copper Extractor', icon: '🟤', category: 'generator',
+            description: 'Extracts raw copper', tier: 1,
+            inputs: [], outputs: [{ item: 'rawCopper', amount: 1 }],
+            craftTime: 1.2, baseCost: 120, costScaling: 1.15, unlocked: true
+        },
+        platePress: {
+            name: 'Plate Press', icon: '🔩', category: 'processor',
+            description: 'Presses steel into plates', tier: 1,
+            inputs: [{ item: 'rawSteel', amount: 2 }],
+            outputs: [{ item: 'steelPlates', amount: 1 }],
+            craftTime: 2.0, baseCost: 150, costScaling: 1.15, unlocked: true
+        },
+        wireDrawer: {
+            name: 'Wire Drawer', icon: '〰️', category: 'processor',
+            description: 'Draws copper into wire', tier: 1,
+            inputs: [{ item: 'rawCopper', amount: 1 }],
+            outputs: [{ item: 'copperWire', amount: 2 }],
+            craftTime: 1.5, baseCost: 130, costScaling: 1.15, unlocked: true
+        },
+        gearCutter: {
+            name: 'Gear Cutter', icon: '⚙️', category: 'processor',
+            description: 'Cuts precision gears', tier: 2,
+            inputs: [{ item: 'rawSteel', amount: 3 }],
+            outputs: [{ item: 'steelGears', amount: 1 }],
+            craftTime: 3.0, baseCost: 200, costScaling: 1.18, unlocked: true
+        },
+        circuitAssembler: {
+            name: 'Circuit Assembler', icon: '🔌', category: 'assembler',
+            description: 'Assembles circuits', tier: 2,
+            inputs: [{ item: 'copperWire', amount: 3 }, { item: 'steelPlates', amount: 1 }],
+            outputs: [{ item: 'circuits', amount: 1 }],
+            craftTime: 4.0, baseCost: 350, costScaling: 1.2, unlocked: true
+        },
+        motorFactory: {
+            name: 'Motor Factory', icon: '🔄', category: 'assembler',
+            description: 'Assembles motors', tier: 2,
+            inputs: [{ item: 'steelGears', amount: 2 }, { item: 'copperWire', amount: 2 }],
+            outputs: [{ item: 'motors', amount: 1 }],
+            craftTime: 5.0, baseCost: 400, costScaling: 1.2, unlocked: true
+        },
+        toolWorkshop: {
+            name: 'Tool Workshop', icon: '🔧', category: 'assembler',
+            description: 'Crafts tools', tier: 3,
+            inputs: [{ item: 'steelPlates', amount: 2 }, { item: 'steelGears', amount: 1 }],
+            outputs: [{ item: 'steelTools', amount: 1 }],
+            craftTime: 4.0, baseCost: 500, costScaling: 1.22, unlocked: true
+        },
+        machineAssembler: {
+            name: 'Machine Assembler', icon: '🏭', category: 'assembler',
+            description: 'Assembles industrial machinery', tier: 3,
+            inputs: [{ item: 'motors', amount: 1 }, { item: 'circuits', amount: 2 }, { item: 'steelPlates', amount: 4 }],
+            outputs: [{ item: 'machines', amount: 1 }],
+            craftTime: 10.0, baseCost: 1000, costScaling: 1.25, unlocked: true
+        }
+    },
+
+    warehouses: {
+        baseSlots: 10,
+        baseCost: 500,
+        costScaling: 2.0,
+        maxWarehouses: 10,
+        slotUpgradeCost: 250,
+        slotUpgradeAmount: 5,
+        storageUpgradeCost: 200,
+        storageUpgradeAmount: 50
+    }
+};
+
+// ============================================================
+// GAME STATE
+// ============================================================
+
 let machineIdCounter = 0;
-let gameLoopInterval = null;
-let priceLoopInterval = null;
+let warehouseIdCounter = 1;
+let currentTab = 'warehouses';
+let currentWarehouseId = 0;
+let currentShopCategory = 'machines';
+let recipeFilter = 'all';
+const activityLog = [];
 
 const gameState = {
-    balance: 1000,
-    maxStorage: 100,
-    
-    // Inventory
-    inventory: {
-        rawSteel: 0,
-        steelPlates: 0,
-        steelGears: 0,
-        steelTools: 0
-    },
-    
-    // Machines
-    processors: [],
-    manufacturers: [],
-    
-    // Market prices (dynamic)
-    prices: {
-        steelPlates: { base: 15, current: 15, trend: 0 },
-        steelGears: { base: 25, current: 25, trend: 0 },
-        steelTools: { base: 50, current: 50, trend: 0 }
-    },
-    
-    // Machine costs (increase with each purchase)
-    machineCosts: {
-        steelGenerator: { base: 100, count: 0 },
-        platePress: { base: 150, count: 0 },
-        gearMaker: { base: 200, count: 0 },
-        toolAssembler: { base: 300, count: 0 }
-    },
-    
-    // Transaction history
-    transactions: []
+    balance: CONFIG.settings.startingBalance,
+    maxStorage: CONFIG.settings.startingStorage,
+    inventory: {},
+    warehouses: [{
+        id: 0, name: 'Main Warehouse', level: 1,
+        maxSlots: CONFIG.warehouses.baseSlots, machines: []
+    }],
+    machineCounts: {},
+    prices: {},
+    stats: { itemsProduced: 0, itemsSold: 0, moneyEarned: 0, machinesBought: 0 }
 };
 
-// ==================== MACHINE DEFINITIONS ====================
-const machineDefinitions = {
-    steelGenerator: {
-        name: 'Steel Generator',
-        type: 'processor',
-        output: 'rawSteel',
-        rate: 1, // per second
-        icon: '⚡'
-    },
-    platePress: {
-        name: 'Plate Press',
-        type: 'manufacturer',
-        input: 'rawSteel',
-        inputAmount: 2,
-        output: 'steelPlates',
-        outputAmount: 1,
-        rate: 0.5,
-        icon: '🔩'
-    },
-    gearMaker: {
-        name: 'Gear Maker',
-        type: 'manufacturer',
-        input: 'rawSteel',
-        inputAmount: 3,
-        output: 'steelGears',
-        outputAmount: 1,
-        rate: 0.33,
-        icon: '🔧'
-    },
-    toolAssembler: {
-        name: 'Tool Assembler',
-        type: 'manufacturer',
-        input: 'steelGears',
-        inputAmount: 2,
-        output: 'steelTools',
-        outputAmount: 1,
-        rate: 0.25,
-        icon: '🛠️'
+// Initialize inventory and prices
+Object.keys(CONFIG.items).forEach(id => {
+    gameState.inventory[id] = 0;
+    gameState.machineCounts[id] = 0;
+    const item = CONFIG.items[id];
+    if (item.sellable) {
+        gameState.prices[id] = { base: item.basePrice, current: item.basePrice, trend: 0 };
     }
-};
+});
+Object.keys(CONFIG.machines).forEach(id => { gameState.machineCounts[id] = 0; });
 
-// ==================== HELPER FUNCTIONS ====================
-function formatMoney(amount) {
-    return '$' + amount.toFixed(0);
+// ============================================================
+// SAVE / LOAD
+// ============================================================
+
+const SAVE_KEY = 'factoryGameSave_v3';
+
+function saveGame() {
+    try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+            version: 3, timestamp: Date.now(), machineIdCounter, warehouseIdCounter,
+            state: gameState
+        }));
+        return true;
+    } catch (e) { console.error('Save failed:', e); return false; }
 }
 
-function getTotalItems() {
-    return Object.values(gameState.inventory).reduce((a, b) => a + b, 0);
+function loadGame() {
+    try {
+        const saved = localStorage.getItem(SAVE_KEY);
+        if (!saved) return false;
+        const data = JSON.parse(saved);
+        if (data.version !== 3) return false;
+        machineIdCounter = data.machineIdCounter || 0;
+        warehouseIdCounter = data.warehouseIdCounter || 1;
+        Object.assign(gameState, data.state);
+        return true;
+    } catch (e) { console.error('Load failed:', e); return false; }
 }
 
-function getStoragePercentage() {
-    return Math.round((getTotalItems() / gameState.maxStorage) * 100);
-}
-
-function getMachineCost(machineType) {
-    const machine = gameState.machineCosts[machineType];
-    return Math.floor(machine.base * Math.pow(1.15, machine.count));
-}
-
-function getProductionRate() {
-    let rate = 0;
-    gameState.processors.forEach(p => {
-        rate += machineDefinitions[p.type].rate;
-    });
-    return rate.toFixed(1);
-}
-
-// ==================== MACHINE MANAGEMENT ====================
-function buyMachine(machineType) {
-    const cost = getMachineCost(machineType);
-    
-    if (gameState.balance < cost) {
-        showNotification('Not enough money!', 'error');
-        return false;
+function resetGame() {
+    if (confirm('Reset all progress?')) {
+        localStorage.removeItem(SAVE_KEY);
+        location.reload();
     }
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+
+function formatMoney(n) {
+    if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+    return '$' + Math.floor(n);
+}
+
+function formatNumber(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return n.toString();
+}
+
+function getItem(id) { return CONFIG.items[id]; }
+function getMachine(id) { return CONFIG.machines[id]; }
+function getWarehouse(id) { return gameState.warehouses.find(w => w.id === id); }
+function getTotalItems() { return Object.values(gameState.inventory).reduce((a, b) => a + b, 0); }
+function getStoragePercent() { return Math.round((getTotalItems() / gameState.maxStorage) * 100); }
+function canAfford(amount) { return gameState.balance >= amount; }
+function hasStorage(amount = 1) { return getTotalItems() + amount <= gameState.maxStorage; }
+function hasItems(id, amount) { return (gameState.inventory[id] || 0) >= amount; }
+function getAllMachines() { return gameState.warehouses.flatMap(w => w.machines); }
+function getUsedSlots(whId) { const w = getWarehouse(whId); return w ? w.machines.length : 0; }
+
+function getMachineCost(machineId) {
+    const m = getMachine(machineId);
+    if (!m) return Infinity;
+    return Math.floor(m.baseCost * Math.pow(m.costScaling, gameState.machineCounts[machineId] || 0));
+}
+
+function getWarehouseCost() {
+    return Math.floor(CONFIG.warehouses.baseCost * Math.pow(CONFIG.warehouses.costScaling, gameState.warehouses.length));
+}
+
+function addActivity(msg) {
+    activityLog.unshift({ time: new Date(), message: msg });
+    if (activityLog.length > 100) activityLog.pop();
+    renderActivityLog();
+}
+
+function showNotification(msg, type = 'info') {
+    const old = document.querySelector('.notification');
+    if (old) old.remove();
+    const el = document.createElement('div');
+    el.className = `notification ${type} show`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2500);
+}
+
+// ============================================================
+// GAME ACTIONS
+// ============================================================
+
+function buyWarehouse() {
+    const cost = getWarehouseCost();
+    if (gameState.warehouses.length >= CONFIG.warehouses.maxWarehouses) {
+        showNotification('Max warehouses!', 'error'); return false;
+    }
+    if (!canAfford(cost)) { showNotification('Not enough money!', 'error'); return false; }
     
     gameState.balance -= cost;
-    gameState.machineCosts[machineType].count++;
-    
-    const definition = machineDefinitions[machineType];
-    const machine = {
-        id: ++machineIdCounter,
-        type: machineType,
-        lastProcess: Date.now()
-    };
-    
-    if (definition.type === 'processor') {
-        gameState.processors.push(machine);
-    } else {
-        gameState.manufacturers.push(machine);
-    }
-    
-    addTransaction(`Bought ${definition.name}`, -cost);
-    showNotification(`Purchased ${definition.name}!`, 'success');
-    updateUI();
+    gameState.warehouses.push({
+        id: warehouseIdCounter++,
+        name: `Warehouse ${gameState.warehouses.length + 1}`,
+        level: 1, maxSlots: CONFIG.warehouses.baseSlots, machines: []
+    });
+    addActivity('Bought new warehouse');
+    showNotification('Warehouse purchased!', 'success');
+    renderAll();
     return true;
 }
 
-// ==================== PRODUCTION LOOP ====================
-function processProduction() {
-    const now = Date.now();
+function buyMachine(machineId, whId) {
+    const machine = getMachine(machineId);
+    const warehouse = getWarehouse(whId);
+    if (!machine || !warehouse) return false;
     
-    // Process all processors
-    gameState.processors.forEach(processor => {
-        const definition = machineDefinitions[processor.type];
-        const timePassed = (now - processor.lastProcess) / 1000;
-        const itemsToAdd = Math.floor(timePassed * definition.rate);
-        
-        if (itemsToAdd > 0 && getTotalItems() < gameState.maxStorage) {
-            const canAdd = Math.min(itemsToAdd, gameState.maxStorage - getTotalItems());
-            gameState.inventory[definition.output] += canAdd;
-            processor.lastProcess = now;
-        } else if (itemsToAdd > 0) {
-            processor.lastProcess = now; // Still update time even if storage full
-        }
-    });
+    const cost = getMachineCost(machineId);
+    if (!canAfford(cost)) { showNotification('Not enough money!', 'error'); return false; }
+    if (getUsedSlots(whId) >= warehouse.maxSlots) { showNotification('No slots!', 'error'); return false; }
     
-    // Process all manufacturers
-    gameState.manufacturers.forEach(manufacturer => {
-        const definition = machineDefinitions[manufacturer.type];
-        const timePassed = (now - manufacturer.lastProcess) / 1000;
-        const cyclesAvailable = Math.floor(timePassed * definition.rate);
-        
-        if (cyclesAvailable > 0) {
-            const inputAvailable = Math.floor(gameState.inventory[definition.input] / definition.inputAmount);
-            const cyclesToRun = Math.min(cyclesAvailable, inputAvailable);
-            
-            if (cyclesToRun > 0 && getTotalItems() < gameState.maxStorage) {
-                const canProduce = Math.min(
-                    cyclesToRun * definition.outputAmount,
-                    gameState.maxStorage - getTotalItems()
-                );
-                const actualCycles = Math.floor(canProduce / definition.outputAmount);
-                
-                if (actualCycles > 0) {
-                    gameState.inventory[definition.input] -= actualCycles * definition.inputAmount;
-                    gameState.inventory[definition.output] += actualCycles * definition.outputAmount;
-                }
-            }
-            manufacturer.lastProcess = now;
-        }
-    });
+    gameState.balance -= cost;
+    gameState.machineCounts[machineId]++;
+    gameState.stats.machinesBought++;
+    warehouse.machines.push({ id: machineIdCounter++, definitionId: machineId, progress: 0 });
+    
+    addActivity(`Bought ${machine.name}`);
+    showNotification(`${machine.name} purchased!`, 'success');
+    renderAll();
+    return true;
 }
 
-// ==================== MARKET FUNCTIONS ====================
-function updateMarketPrices() {
-    Object.keys(gameState.prices).forEach(item => {
-        const priceData = gameState.prices[item];
-        const variation = (Math.random() - 0.5) * 0.1; // -5% to +5%
-        
-        // Supply pressure: more items = lower price
-        const inventoryKey = item.charAt(0).toLowerCase() + item.slice(1);
-        const supplyPressure = gameState.inventory[inventoryKey] > 20 ? -0.02 : 0.01;
-        
-        const change = priceData.base * (variation + supplyPressure);
-        priceData.current = Math.max(
-            priceData.base * 0.5,
-            Math.min(priceData.base * 2, priceData.current + change)
-        );
-        
-        priceData.trend = change > 0 ? 1 : (change < 0 ? -1 : 0);
-    });
+function sellMachine(instanceId, whId) {
+    const warehouse = getWarehouse(whId);
+    if (!warehouse) return false;
+    const idx = warehouse.machines.findIndex(m => m.id === instanceId);
+    if (idx === -1) return false;
+    
+    const machine = warehouse.machines[idx];
+    const def = getMachine(machine.definitionId);
+    const refund = Math.floor(getMachineCost(machine.definitionId) * 0.5);
+    
+    warehouse.machines.splice(idx, 1);
+    gameState.machineCounts[machine.definitionId]--;
+    gameState.balance += refund;
+    
+    addActivity(`Sold ${def.name} for ${formatMoney(refund)}`);
+    showNotification(`Sold for ${formatMoney(refund)}`, 'success');
+    renderAll();
+    return true;
 }
 
-function sellItem(itemKey, amount) {
-    if (gameState.inventory[itemKey] < amount) {
-        showNotification('Not enough items to sell!', 'error');
-        return false;
-    }
+function upgradeSlots(whId) {
+    const warehouse = getWarehouse(whId);
+    if (!warehouse) return false;
+    const cost = CONFIG.warehouses.slotUpgradeCost * warehouse.level;
+    if (!canAfford(cost)) { showNotification('Not enough money!', 'error'); return false; }
     
-    const priceData = gameState.prices[itemKey];
-    if (!priceData) {
-        showNotification('Invalid item!', 'error');
-        return false;
-    }
+    gameState.balance -= cost;
+    warehouse.maxSlots += CONFIG.warehouses.slotUpgradeAmount;
+    warehouse.level++;
+    addActivity('Upgraded warehouse slots');
+    showNotification('Slots upgraded!', 'success');
+    renderAll();
+    return true;
+}
+
+function upgradeStorage() {
+    const cost = CONFIG.warehouses.storageUpgradeCost;
+    if (!canAfford(cost)) { showNotification('Not enough money!', 'error'); return false; }
     
-    const revenue = Math.floor(priceData.current * amount);
-    gameState.inventory[itemKey] -= amount;
-    gameState.balance += revenue;
+    gameState.balance -= cost;
+    gameState.maxStorage += CONFIG.warehouses.storageUpgradeAmount;
+    addActivity('Upgraded storage');
+    showNotification('Storage upgraded!', 'success');
+    renderAll();
+    return true;
+}
+
+function sellItem(itemId, amount) {
+    amount = Math.min(amount, gameState.inventory[itemId] || 0);
+    if (amount <= 0) return false;
     
-    addTransaction(`Sold ${amount} ${itemKey.replace(/([A-Z])/g, ' $1').trim()}`, revenue);
-    showNotification(`Sold for $${revenue}!`, 'success');
-    updateUI();
+    const price = gameState.prices[itemId];
+    if (!price) return false;
+    
+    const total = Math.floor(price.current * amount);
+    gameState.inventory[itemId] -= amount;
+    gameState.balance += total;
+    gameState.stats.itemsSold += amount;
+    gameState.stats.moneyEarned += total;
+    
+    addActivity(`Sold ${amount}x ${getItem(itemId).name} for ${formatMoney(total)}`);
+    showNotification(`+${formatMoney(total)}`, 'success');
+    renderAll();
     return true;
 }
 
 function sellAllItems() {
-    let totalRevenue = 0;
-    let itemsSold = 0;
-    
-    ['steelPlates', 'steelGears', 'steelTools'].forEach(itemKey => {
-        const amount = gameState.inventory[itemKey];
+    let total = 0;
+    Object.entries(gameState.prices).forEach(([id, price]) => {
+        const amount = gameState.inventory[id] || 0;
         if (amount > 0) {
-            const priceData = gameState.prices[itemKey];
-            if (priceData) {
-                const revenue = Math.floor(priceData.current * amount);
-                gameState.inventory[itemKey] = 0;
-                totalRevenue += revenue;
-                itemsSold += amount;
-            }
+            total += Math.floor(price.current * amount);
+            gameState.stats.itemsSold += amount;
+            gameState.inventory[id] = 0;
         }
     });
-    
-    if (itemsSold > 0) {
-        gameState.balance += totalRevenue;
-        addTransaction(`Sold ${itemsSold} items`, totalRevenue);
-        showNotification(`Sold ${itemsSold} items for $${totalRevenue}!`, 'success');
-    } else {
-        showNotification('No items to sell!', 'error');
+    if (total > 0) {
+        gameState.balance += total;
+        gameState.stats.moneyEarned += total;
+        addActivity(`Sold all for ${formatMoney(total)}`);
+        showNotification(`+${formatMoney(total)}`, 'success');
     }
-    
-    updateUI();
+    renderAll();
 }
 
-function addTransaction(description, amount) {
-    gameState.transactions.unshift({
-        time: new Date().toLocaleTimeString(),
-        description,
-        amount
-    });
-    
-    // Keep only last 10 transactions
-    if (gameState.transactions.length > 10) {
-        gameState.transactions.pop();
-    }
-}
+// ============================================================
+// PRODUCTION
+// ============================================================
 
-// ==================== NOTIFICATION SYSTEM ====================
-function showNotification(message, type = 'info') {
-    // Create toast notification element
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    toast.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        padding: 12px 24px;
-        border-radius: 8px;
-        color: white;
-        font-weight: 500;
-        z-index: 1000;
-        animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s;
-        background: ${type === 'error' ? '#e74c3c' : type === 'success' ? '#27ae60' : '#3498db'};
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    `;
+function processProduction() {
+    const tickSec = CONFIG.settings.productionTickRate / 1000;
     
-    document.body.appendChild(toast);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (toast.parentNode) {
-            toast.parentNode.removeChild(toast);
-        }
-    }, 3000);
-}
-
-// ==================== UI UPDATE FUNCTIONS ====================
-function updateUI() {
-    // Update status bar
-    document.getElementById('status-balance').textContent = gameState.balance.toFixed(0);
-    document.getElementById('status-storage').textContent = `${getTotalItems()}/${gameState.maxStorage}`;
-    document.getElementById('status-production').textContent = `${getProductionRate()}/s`;
-    
-    // Update home page stats
-    document.getElementById('home-processor-count').textContent = gameState.processors.length;
-    document.getElementById('home-manufacturer-count').textContent = gameState.manufacturers.length;
-    document.getElementById('home-production-rate').textContent = `${getProductionRate()}/s`;
-    document.getElementById('home-raw-materials').textContent = gameState.inventory.rawSteel;
-    document.getElementById('home-processed-items').textContent = 
-        gameState.inventory.steelPlates + gameState.inventory.steelGears + gameState.inventory.steelTools;
-    document.getElementById('home-storage-used').textContent = `${getStoragePercentage()}%`;
-    document.getElementById('home-balance').textContent = formatMoney(gameState.balance);
-    document.getElementById('home-steel-price').textContent = formatMoney(gameState.prices.steelPlates.current);
-    document.getElementById('home-item-price').textContent = formatMoney(gameState.prices.steelTools.current);
-    
-    // Update warehouse inventory
-    document.getElementById('inv-raw-steel').textContent = gameState.inventory.rawSteel;
-    document.getElementById('inv-steel-plates').textContent = gameState.inventory.steelPlates;
-    document.getElementById('inv-steel-gears').textContent = gameState.inventory.steelGears;
-    document.getElementById('inv-steel-tools').textContent = gameState.inventory.steelTools;
-    document.getElementById('storage-current').textContent = getTotalItems();
-    document.getElementById('storage-max').textContent = gameState.maxStorage;
-    document.getElementById('storage-progress').style.width = `${getStoragePercentage()}%`;
-    
-    // Update machine costs
-    document.getElementById('steel-generator-price').textContent = formatMoney(getMachineCost('steelGenerator'));
-    document.getElementById('plate-press-price').textContent = formatMoney(getMachineCost('platePress'));
-    document.getElementById('gear-maker-price').textContent = formatMoney(getMachineCost('gearMaker'));
-    document.getElementById('tool-assembler-price').textContent = formatMoney(getMachineCost('toolAssembler'));
-    
-    // Update processor list
-    updateMachineList('processor-list', gameState.processors);
-    updateMachineList('manufacturer-list', gameState.manufacturers);
-    
-    // Update market prices
-    document.getElementById('market-balance').textContent = gameState.balance.toFixed(0);
-    document.getElementById('market-plate-price').textContent = formatMoney(gameState.prices.steelPlates.current);
-    document.getElementById('market-gear-price').textContent = formatMoney(gameState.prices.steelGears.current);
-    document.getElementById('market-tool-price').textContent = formatMoney(gameState.prices.steelTools.current);
-    
-    // Update price trends
-    updatePriceTrend('plate-trend', gameState.prices.steelPlates.trend);
-    updatePriceTrend('gear-trend', gameState.prices.steelGears.trend);
-    updatePriceTrend('tool-trend', gameState.prices.steelTools.trend);
-    
-    // Update sell panel
-    document.getElementById('sell-plates-owned').textContent = `${gameState.inventory.steelPlates} owned`;
-    document.getElementById('sell-gears-owned').textContent = `${gameState.inventory.steelGears} owned`;
-    document.getElementById('sell-tools-owned').textContent = `${gameState.inventory.steelTools} owned`;
-    
-    // Update transaction history
-    updateTransactionHistory();
-}
-
-function updateMachineList(listId, machines) {
-    const list = document.getElementById(listId);
-    
-    if (machines.length === 0) {
-        list.innerHTML = '<div class="machine-item"><span style="color: var(--text-secondary);">No machines yet</span></div>';
-        return;
-    }
-    
-    // Group machines by type
-    const grouped = {};
-    machines.forEach(machine => {
-        if (!grouped[machine.type]) {
-            grouped[machine.type] = 0;
-        }
-        grouped[machine.type]++;
-    });
-    
-    list.innerHTML = Object.entries(grouped).map(([type, count]) => {
-        const definition = machineDefinitions[type];
-        return `
-            <div class="machine-item">
-                <div class="machine-info">
-                    <span class="machine-name">${definition.icon} ${definition.name}</span>
-                    <span class="machine-output">Output: ${definition.rate}/s</span>
-                </div>
-                <span class="machine-status">x${count}</span>
-            </div>
-        `;
-    }).join('');
-}
-
-function updatePriceTrend(elementId, trend) {
-    const element = document.getElementById(elementId);
-    if (trend > 0) {
-        element.textContent = '↑';
-        element.className = 'price-trend up';
-    } else if (trend < 0) {
-        element.textContent = '↓';
-        element.className = 'price-trend down';
-    } else {
-        element.textContent = '→';
-        element.className = 'price-trend';
-    }
-}
-
-function updateTransactionHistory() {
-    const historyList = document.getElementById('transaction-history');
-    
-    if (gameState.transactions.length === 0) {
-        historyList.innerHTML = '<div class="history-item placeholder">No transactions yet</div>';
-        return;
-    }
-    
-    historyList.innerHTML = gameState.transactions.map(t => `
-        <div class="history-item">
-            <span class="history-type">${t.description}</span>
-            <span class="history-amount">${t.amount >= 0 ? '+' : ''}${formatMoney(t.amount)}</span>
-        </div>
-    `).join('');
-}
-
-// ==================== NAVIGATION ====================
-function setupNavigation() {
-    const navButtons = document.querySelectorAll('.nav-btn');
-    const pages = document.querySelectorAll('.page');
-    
-    navButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetPage = btn.dataset.page;
+    gameState.warehouses.forEach(warehouse => {
+        warehouse.machines.forEach(machine => {
+            const def = getMachine(machine.definitionId);
+            if (!def) return;
             
-            // Update buttons
-            navButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            machine.progress += tickSec / def.craftTime;
             
-            // Update pages
-            pages.forEach(page => {
-                page.classList.remove('active');
-                if (page.id === `${targetPage}-page`) {
-                    page.classList.add('active');
+            while (machine.progress >= 1) {
+                const canProduce = def.inputs.every(i => hasItems(i.item, i.amount));
+                const outputAmt = def.outputs.reduce((s, o) => s + o.amount, 0);
+                
+                if (!canProduce || !hasStorage(outputAmt)) {
+                    machine.progress = Math.min(machine.progress, 1);
+                    break;
                 }
-            });
+                
+                def.inputs.forEach(i => { gameState.inventory[i.item] -= i.amount; });
+                def.outputs.forEach(o => {
+                    gameState.inventory[o.item] += o.amount;
+                    gameState.stats.itemsProduced += o.amount;
+                });
+                machine.progress -= 1;
+            }
         });
     });
 }
 
-// ==================== EVENT HANDLERS ====================
-function setupEventHandlers() {
-    // Quick actions on home page
-    document.getElementById('quick-buy-processor').addEventListener('click', () => {
-        buyMachine('steelGenerator');
-    });
-    
-    document.getElementById('quick-sell-items').addEventListener('click', () => {
-        sellAllItems();
-    });
-    
-    // Warehouse buy buttons
-    document.getElementById('buy-steel-generator').addEventListener('click', () => {
-        buyMachine('steelGenerator');
-    });
-    
-    document.getElementById('buy-plate-press').addEventListener('click', () => {
-        buyMachine('platePress');
-    });
-    
-    document.getElementById('buy-gear-maker').addEventListener('click', () => {
-        buyMachine('gearMaker');
-    });
-    
-    document.getElementById('buy-tool-assembler').addEventListener('click', () => {
-        buyMachine('toolAssembler');
-    });
-    
-    // Market sell buttons
-    document.getElementById('sell-plates-btn').addEventListener('click', () => {
-        const amount = parseInt(document.getElementById('sell-plates-amount').value) || 1;
-        sellItem('steelPlates', amount);
-    });
-    
-    document.getElementById('sell-gears-btn').addEventListener('click', () => {
-        const amount = parseInt(document.getElementById('sell-gears-amount').value) || 1;
-        sellItem('steelGears', amount);
-    });
-    
-    document.getElementById('sell-tools-btn').addEventListener('click', () => {
-        const amount = parseInt(document.getElementById('sell-tools-amount').value) || 1;
-        sellItem('steelTools', amount);
-    });
-    
-    document.getElementById('sell-all-btn').addEventListener('click', () => {
-        sellAllItems();
+function updatePrices() {
+    Object.entries(gameState.prices).forEach(([id, price]) => {
+        const item = getItem(id);
+        const vol = item?.priceVolatility || 0.1;
+        const change = (Math.random() - 0.5) * 2 * vol;
+        const supply = gameState.inventory[id] || 0;
+        const supplyFactor = supply > 20 ? -0.02 : supply < 5 ? 0.02 : 0;
+        
+        const newPrice = price.current * (1 + change + supplyFactor);
+        price.trend = newPrice > price.current ? 1 : newPrice < price.current ? -1 : 0;
+        price.current = Math.max(price.base * 0.5, Math.min(price.base * 2, newPrice));
     });
 }
 
-// ==================== GAME LOOP ====================
+// ============================================================
+// RENDERING
+// ============================================================
+
+function renderAll() {
+    renderHUD();
+    renderInventory();
+    renderWarehouseList();
+    renderCurrentTab();
+    renderStatusBar();
+}
+
+function renderHUD() {
+    const bal = document.getElementById('hud-balance');
+    const stor = document.getElementById('hud-storage');
+    const prod = document.getElementById('hud-production');
+    if (bal) bal.textContent = formatMoney(gameState.balance);
+    if (stor) stor.textContent = `${getTotalItems()}/${gameState.maxStorage}`;
+    if (prod) {
+        let rate = 0;
+        getAllMachines().forEach(m => {
+            const def = getMachine(m.definitionId);
+            if (def) def.outputs.forEach(o => { rate += o.amount / def.craftTime; });
+        });
+        prod.textContent = rate.toFixed(1) + '/s';
+    }
+}
+
+function renderInventory() {
+    const grid = document.getElementById('inventory-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = Object.entries(CONFIG.items).map(([id, item]) => {
+        const count = gameState.inventory[id] || 0;
+        return `
+            <div class="inv-slot ${count === 0 ? 'empty' : ''}" data-item="${id}" title="${item.name}: ${count}">
+                <span class="slot-icon">${item.icon}</span>
+                <span class="slot-count">${count > 0 ? formatNumber(count) : ''}</span>
+            </div>
+        `;
+    }).join('');
+    
+    const bar = document.getElementById('storage-bar-fill');
+    const txt = document.getElementById('storage-text');
+    if (bar) bar.style.width = getStoragePercent() + '%';
+    if (txt) txt.textContent = `${getTotalItems()} / ${gameState.maxStorage}`;
+}
+
+function renderWarehouseList() {
+    const list = document.getElementById('warehouse-list');
+    if (!list) return;
+    
+    list.innerHTML = gameState.warehouses.map(wh => `
+        <div class="warehouse-card" data-wh-id="${wh.id}">
+            <div class="warehouse-card-header">
+                <span class="warehouse-icon">🏭</span>
+                <span class="warehouse-name">${wh.name}</span>
+                <span class="warehouse-level">Lv.${wh.level}</span>
+            </div>
+            <div class="warehouse-stats-grid">
+                <div class="warehouse-stat">
+                    <span class="warehouse-stat-label">Slots</span>
+                    <span class="warehouse-stat-value">${wh.machines.length}/${wh.maxSlots}</span>
+                </div>
+                <div class="warehouse-stat">
+                    <span class="warehouse-stat-label">Machines</span>
+                    <span class="warehouse-stat-value">${wh.machines.length}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    // Update warehouse cost button
+    const costEl = document.getElementById('warehouse-cost');
+    if (costEl) costEl.textContent = formatMoney(getWarehouseCost());
+}
+
+function renderCurrentTab() {
+    if (currentTab === 'machines') renderMachinesTab();
+    else if (currentTab === 'shop') renderShopTab();
+    else if (currentTab === 'market') renderMarketTab();
+    else if (currentTab === 'recipes') renderRecipesTab();
+}
+
+function renderMachinesTab() {
+    const warehouse = getWarehouse(currentWarehouseId);
+    if (!warehouse) return;
+    
+    const nameEl = document.getElementById('current-warehouse-name');
+    const slotsEl = document.getElementById('wh-slots');
+    if (nameEl) nameEl.textContent = warehouse.name;
+    if (slotsEl) slotsEl.textContent = `${warehouse.machines.length}/${warehouse.maxSlots}`;
+    
+    const list = document.getElementById('machine-list');
+    if (!list) return;
+    
+    if (warehouse.machines.length === 0) {
+        list.innerHTML = '<div class="empty-state">No machines. Buy some from the Shop!</div>';
+    } else {
+        const grouped = {};
+        warehouse.machines.forEach(m => {
+            if (!grouped[m.definitionId]) grouped[m.definitionId] = [];
+            grouped[m.definitionId].push(m);
+        });
+        
+        list.innerHTML = Object.entries(grouped).map(([defId, machines]) => {
+            const def = getMachine(defId);
+            const sellPrice = Math.floor(getMachineCost(defId) * 0.5);
+            return `
+                <div class="machine-item">
+                    <div class="machine-icon">${def.icon}</div>
+                    <div class="machine-info">
+                        <span class="machine-name">${def.name} <span class="machine-count">×${machines.length}</span></span>
+                        <span class="machine-output">${def.outputs.map(o => `${(o.amount / def.craftTime).toFixed(1)} ${getItem(o.item).name}/s`).join(', ')}</span>
+                    </div>
+                    <button class="btn btn-small btn-danger" data-sell-machine="${machines[0].id}">Sell ${formatMoney(sellPrice)}</button>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    const slotsCost = document.getElementById('slots-cost');
+    const storageCost = document.getElementById('storage-cost');
+    if (slotsCost) slotsCost.textContent = formatMoney(CONFIG.warehouses.slotUpgradeCost * warehouse.level);
+    if (storageCost) storageCost.textContent = formatMoney(CONFIG.warehouses.storageUpgradeCost);
+}
+
+function renderShopTab() {
+    const content = document.getElementById('shop-content');
+    if (!content) return;
+    
+    let html = '';
+    
+    if (currentShopCategory === 'machines') {
+        Object.entries(CONFIG.machineCategories).forEach(([catId, cat]) => {
+            const machines = Object.entries(CONFIG.machines).filter(([, m]) => m.category === catId);
+            if (machines.length === 0) return;
+            
+            html += `<div class="shop-category"><h4>${cat.icon} ${cat.name}</h4><div class="shop-items">`;
+            machines.forEach(([id, machine]) => {
+                const cost = getMachineCost(id);
+                const affordable = canAfford(cost);
+                const owned = gameState.machineCounts[id] || 0;
+                html += `
+                    <div class="shop-item ${!affordable ? 'disabled' : ''}" data-machine-id="${id}">
+                        <div class="shop-item-icon">${machine.icon}</div>
+                        <div class="shop-item-info">
+                            <span class="shop-item-name">${machine.name}</span>
+                            <span class="shop-item-desc">${machine.description}</span>
+                            <span class="shop-item-stats">${machine.outputs.map(o => `${getItem(o.item).icon} ${(o.amount / machine.craftTime).toFixed(1)}/s`).join(' ')}</span>
+                        </div>
+                        <div class="shop-item-right">
+                            <span class="shop-item-owned">Owned: ${owned}</span>
+                            <span class="shop-item-cost">${formatMoney(cost)}</span>
+                            <button class="btn btn-small btn-success" data-buy-machine="${id}" ${!affordable ? 'disabled' : ''}>Buy</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div></div>`;
+        });
+    } else if (currentShopCategory === 'warehouses') {
+        const cost = getWarehouseCost();
+        const affordable = canAfford(cost) && gameState.warehouses.length < CONFIG.warehouses.maxWarehouses;
+        html = `
+            <div class="shop-category"><h4>🏭 New Warehouse</h4><div class="shop-items">
+                <div class="shop-item ${!affordable ? 'disabled' : ''}">
+                    <div class="shop-item-icon">🏭</div>
+                    <div class="shop-item-info">
+                        <span class="shop-item-name">Warehouse</span>
+                        <span class="shop-item-desc">${CONFIG.warehouses.baseSlots} machine slots</span>
+                        <span class="shop-item-stats">Current: ${gameState.warehouses.length}/${CONFIG.warehouses.maxWarehouses}</span>
+                    </div>
+                    <div class="shop-item-right">
+                        <span class="shop-item-cost">${formatMoney(cost)}</span>
+                        <button class="btn btn-small btn-success" id="shop-buy-warehouse" ${!affordable ? 'disabled' : ''}>Buy</button>
+                    </div>
+                </div>
+            </div></div>
+        `;
+    } else if (currentShopCategory === 'upgrades') {
+        const wh = getWarehouse(currentWarehouseId);
+        const slotCost = wh ? CONFIG.warehouses.slotUpgradeCost * wh.level : 0;
+        html = `
+            <div class="shop-category"><h4>⬆️ Upgrades</h4><div class="shop-items">
+                <div class="shop-item ${!canAfford(slotCost) ? 'disabled' : ''}">
+                    <div class="shop-item-icon">📦</div>
+                    <div class="shop-item-info">
+                        <span class="shop-item-name">+${CONFIG.warehouses.slotUpgradeAmount} Slots</span>
+                        <span class="shop-item-desc">Add slots to ${wh?.name || 'warehouse'}</span>
+                    </div>
+                    <div class="shop-item-right">
+                        <span class="shop-item-cost">${formatMoney(slotCost)}</span>
+                        <button class="btn btn-small btn-success" id="shop-upgrade-slots">Buy</button>
+                    </div>
+                </div>
+                <div class="shop-item ${!canAfford(CONFIG.warehouses.storageUpgradeCost) ? 'disabled' : ''}">
+                    <div class="shop-item-icon">🗄️</div>
+                    <div class="shop-item-info">
+                        <span class="shop-item-name">+${CONFIG.warehouses.storageUpgradeAmount} Storage</span>
+                        <span class="shop-item-desc">Increase global storage</span>
+                    </div>
+                    <div class="shop-item-right">
+                        <span class="shop-item-cost">${formatMoney(CONFIG.warehouses.storageUpgradeCost)}</span>
+                        <button class="btn btn-small btn-success" id="shop-upgrade-storage">Buy</button>
+                    </div>
+                </div>
+            </div></div>
+        `;
+    }
+    
+    content.innerHTML = html;
+}
+
+function renderMarketTab() {
+    const list = document.getElementById('market-list');
+    if (!list) return;
+    
+    const sellable = Object.entries(CONFIG.items).filter(([, item]) => item.sellable);
+    
+    list.innerHTML = sellable.map(([id, item]) => {
+        const price = gameState.prices[id];
+        const owned = gameState.inventory[id] || 0;
+        const trendIcon = price.trend > 0 ? '↑' : price.trend < 0 ? '↓' : '→';
+        const trendClass = price.trend > 0 ? 'up' : price.trend < 0 ? 'down' : '';
+        
+        return `
+            <div class="market-item">
+                <div class="market-icon">${item.icon}</div>
+                <div class="market-info">
+                    <span class="market-name">${item.name}</span>
+                    <span class="market-owned">${owned} owned</span>
+                </div>
+                <div class="market-price">
+                    <span class="price-value">${formatMoney(price.current)}</span>
+                    <span class="price-trend ${trendClass}">${trendIcon}</span>
+                </div>
+                <div class="market-actions">
+                    <input type="number" class="amount-input" data-item="${id}" value="1" min="1" max="${Math.max(1, owned)}">
+                    <button class="btn btn-small btn-success" data-sell-item="${id}" ${owned === 0 ? 'disabled' : ''}>Sell</button>
+                </div>
+            </div>
+        `;
+    }).join('') + `
+        <div class="market-item sell-all">
+            <div class="market-info"><span class="market-name">Sell All Items</span></div>
+            <button class="btn btn-success" id="sell-all-btn">Sell All</button>
+        </div>
+    `;
+}
+
+function renderRecipesTab() {
+    const content = document.getElementById('recipe-content');
+    if (!content) return;
+    
+    const recipes = Object.entries(CONFIG.machines).map(([id, m]) => ({
+        id, ...m,
+        inputItems: m.inputs.map(i => ({ ...i, ...getItem(i.item) })),
+        outputItems: m.outputs.map(o => ({ ...o, ...getItem(o.item) }))
+    }));
+    
+    const filtered = recipeFilter === 'all' ? recipes : recipes.filter(r => r.category === recipeFilter);
+    
+    content.innerHTML = `
+        <div class="recipe-filters">
+            <button class="filter-btn ${recipeFilter === 'all' ? 'active' : ''}" data-filter="all">All</button>
+            ${Object.entries(CONFIG.machineCategories).map(([id, cat]) => `
+                <button class="filter-btn ${recipeFilter === id ? 'active' : ''}" data-filter="${id}">${cat.icon} ${cat.name}</button>
+            `).join('')}
+        </div>
+        <div class="recipe-list">
+            ${filtered.map(r => `
+                <div class="recipe-card">
+                    <div class="recipe-header">
+                        <span class="recipe-machine">${r.icon} ${r.name}</span>
+                        <span class="recipe-time">⏱️ ${r.craftTime}s</span>
+                    </div>
+                    <div class="recipe-flow">
+                        <div class="recipe-inputs">
+                            ${r.inputs.length === 0 ? '<span class="no-input">No inputs</span>' :
+                                r.inputItems.map(i => `
+                                    <div class="recipe-item" title="${i.name}">
+                                        <span class="recipe-item-icon">${i.icon}</span>
+                                        <span class="recipe-item-amount">×${i.amount}</span>
+                                    </div>
+                                `).join('')}
+                        </div>
+                        <div class="recipe-arrow">→</div>
+                        <div class="recipe-outputs">
+                            ${r.outputItems.map(o => `
+                                <div class="recipe-item" title="${o.name}">
+                                    <span class="recipe-item-icon">${o.icon}</span>
+                                    <span class="recipe-item-amount">×${o.amount}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="recipe-rate">${r.outputs.map(o => `${(o.amount / r.craftTime).toFixed(2)}/s`).join(', ')}</div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderActivityLog() {
+    const log = document.getElementById('activity-log');
+    if (!log) return;
+    
+    log.innerHTML = activityLog.length === 0 
+        ? '<div class="log-entry">Welcome to Factory Simulator!</div>'
+        : activityLog.slice(0, 20).map(e => {
+            const t = e.time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            return `<div class="log-entry"><span class="log-time">[${t}]</span> ${e.message}</div>`;
+        }).join('');
+}
+
+function renderStatusBar() {
+    const wh = document.getElementById('status-warehouses');
+    const mach = document.getElementById('status-machines');
+    if (wh) wh.textContent = gameState.warehouses.length;
+    if (mach) mach.textContent = getAllMachines().length;
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+
+function switchTab(tabId) {
+    currentTab = tabId;
+    
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.toggle('active', pane.id === `tab-${tabId}`);
+    });
+    
+    renderCurrentTab();
+}
+
+function openWarehouse(id) {
+    currentWarehouseId = id;
+    switchTab('machines');
+}
+
+// ============================================================
+// EVENT HANDLING
+// ============================================================
+
+function setupEvents() {
+    // Use event delegation for all clicks
+    document.addEventListener('click', e => {
+        const target = e.target;
+        
+        // Tab buttons
+        if (target.closest('.tab-btn')) {
+            const btn = target.closest('.tab-btn');
+            switchTab(btn.dataset.tab);
+            return;
+        }
+        
+        // Warehouse cards
+        if (target.closest('.warehouse-card')) {
+            const card = target.closest('.warehouse-card');
+            const id = parseInt(card.dataset.whId);
+            openWarehouse(id);
+            return;
+        }
+        
+        // Shop tabs
+        if (target.closest('.shop-tab')) {
+            const tab = target.closest('.shop-tab');
+            currentShopCategory = tab.dataset.category;
+            document.querySelectorAll('.shop-tab').forEach(t => t.classList.toggle('active', t === tab));
+            renderShopTab();
+            return;
+        }
+        
+        // Recipe filters
+        if (target.closest('.filter-btn')) {
+            recipeFilter = target.closest('.filter-btn').dataset.filter;
+            renderRecipesTab();
+            return;
+        }
+        
+        // Buy machine (shop)
+        if (target.dataset.buyMachine) {
+            buyMachine(target.dataset.buyMachine, currentWarehouseId);
+            return;
+        }
+        
+        // Sell machine
+        if (target.dataset.sellMachine) {
+            sellMachine(parseInt(target.dataset.sellMachine), currentWarehouseId);
+            return;
+        }
+        
+        // Sell item (market)
+        if (target.dataset.sellItem) {
+            const id = target.dataset.sellItem;
+            const input = document.querySelector(`.amount-input[data-item="${id}"]`);
+            sellItem(id, parseInt(input?.value) || 1);
+            return;
+        }
+        
+        // Sell all
+        if (target.id === 'sell-all-btn') {
+            sellAllItems();
+            return;
+        }
+        
+        // Buy warehouse (main button)
+        if (target.id === 'buy-warehouse-btn' || target.closest('#buy-warehouse-btn')) {
+            buyWarehouse();
+            return;
+        }
+        
+        // Shop buy warehouse
+        if (target.id === 'shop-buy-warehouse') {
+            buyWarehouse();
+            return;
+        }
+        
+        // Upgrade slots
+        if (target.id === 'upgrade-slots-btn' || target.closest('#upgrade-slots-btn') || target.id === 'shop-upgrade-slots') {
+            upgradeSlots(currentWarehouseId);
+            return;
+        }
+        
+        // Upgrade storage
+        if (target.id === 'upgrade-storage-btn' || target.closest('#upgrade-storage-btn') || target.id === 'shop-upgrade-storage') {
+            upgradeStorage();
+            return;
+        }
+        
+        // Back button
+        if (target.id === 'back-to-warehouses' || target.closest('#back-to-warehouses')) {
+            switchTab('warehouses');
+            return;
+        }
+        
+        // Settings
+        if (target.id === 'settings-btn' || target.closest('#settings-btn')) {
+            document.getElementById('settings-modal')?.classList.add('active');
+            return;
+        }
+        
+        // Close settings
+        if (target.id === 'close-settings' || target.id === 'settings-modal') {
+            document.getElementById('settings-modal')?.classList.remove('active');
+            return;
+        }
+        
+        // Save
+        if (target.id === 'save-btn' || target.closest('#save-btn')) {
+            saveGame();
+            showNotification('Game saved!', 'success');
+            return;
+        }
+        
+        // Export
+        if (target.id === 'export-save-btn') {
+            saveGame();
+            const data = localStorage.getItem(SAVE_KEY);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `factory-save-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showNotification('Save exported!', 'success');
+            return;
+        }
+        
+        // Reset
+        if (target.id === 'reset-game-btn') {
+            resetGame();
+            return;
+        }
+    });
+    
+    // Import file
+    document.getElementById('import-save-input')?.addEventListener('change', e => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    localStorage.setItem(SAVE_KEY, ev.target.result);
+                    location.reload();
+                } catch (err) {
+                    showNotification('Invalid save file', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+    });
+}
+
+// ============================================================
+// GAME LOOPS
+// ============================================================
+
 function gameLoop() {
     processProduction();
-    updateUI();
+    renderHUD();
+    renderInventory();
 }
 
 function priceLoop() {
-    updateMarketPrices();
-    updateUI();
+    updatePrices();
+    if (currentTab === 'market') renderMarketTab();
 }
 
-// ==================== INITIALIZATION ====================
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
 function init() {
-    setupNavigation();
-    setupEventHandlers();
-    updateUI();
+    const loaded = loadGame();
     
-    // Clear any existing intervals (in case of re-initialization)
-    if (gameLoopInterval) clearInterval(gameLoopInterval);
-    if (priceLoopInterval) clearInterval(priceLoopInterval);
+    setupEvents();
+    renderAll();
+    renderActivityLog();
     
-    // Start game loops
-    gameLoopInterval = setInterval(gameLoop, 100); // 10 times per second for smooth production
-    priceLoopInterval = setInterval(priceLoop, 5000); // Update prices every 5 seconds
+    if (loaded) {
+        addActivity('Game loaded');
+        showNotification('Game loaded!', 'success');
+    } else {
+        addActivity('Welcome to Factory Simulator!');
+        addActivity('Click a warehouse to get started');
+    }
     
+    // Start loops
+    setInterval(gameLoop, CONFIG.settings.productionTickRate);
+    setInterval(priceLoop, CONFIG.settings.priceUpdateInterval);
+    setInterval(() => { saveGame(); console.log('Auto-saved'); }, CONFIG.settings.autoSaveInterval);
+    
+    window.addEventListener('beforeunload', saveGame);
     console.log('🏭 Factory Simulator initialized!');
 }
 
-// Start the game when DOM is loaded
 document.addEventListener('DOMContentLoaded', init);

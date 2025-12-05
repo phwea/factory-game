@@ -1,1 +1,2 @@
-# factory-game
+# genC
+### minimal fun generator game
